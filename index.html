@@ -1,0 +1,64 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+async function generateBook() {
+    const topic = document.getElementById('topic').value.trim();
+    if (!topic) return alert('Please enter a topic!');
+
+    const HF_TOKEN = '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';  // YOUR TOKEN HERE
+    const MODEL = 'mosaicml/mpt-7b-storywriter';
+
+    document.getElementById('output').innerHTML = 'Generating 100-page book...<br>';
+
+    let fullBook = `AI-Generated Book: ${topic}\n\n`;
+    const chapters = 10;
+
+    for (let i = 1; i <= chapters; i++) {
+        const prompt = `Write Chapter ${i} of a 100-page book titled "${topic}". 
+        Make it engaging, ~10 pages long (~5000 words), with subheadings and rich details. 
+        Continue the story naturally.`;
+
+        try {
+            const res = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${HF_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    inputs: prompt,
+                    parameters: {
+                        max_new_tokens: 3000,
+                        temperature: 0.8,
+                        do_sample: true,
+                        return_full_text: false
+                    }
+                })
+            });
+
+            const data = await res.json();
+            const chapter = data[0]?.generated_text || '[Error]';
+
+            fullBook += `CHAPTER ${i}\n${chapter.trim()}\n\n`;
+            document.getElementById('output').innerHTML += `Chapter ${i} completed.<br>`;
+
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) {
+            alert('Rate limit or error. Wait 1 min and try again.');
+            return;
+        }
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const lines = doc.splitTextToSize(fullBook, 180);
+    let y = 10;
+    lines.forEach(line => {
+        if (y > 280) { doc.addPage(); y = 10; }
+        doc.text(line, 10, y);
+        y += 7;
+    });
+    doc.save(`${topic.replace(/ /g, '_')}_100_page_book.pdf`);
+
+    document.getElementById('output').innerHTML += '<br><strong>Book downloaded!</strong>';
+}
+</script>
